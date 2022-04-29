@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-teste-nginx
+  labels:
+    app: nodejs-teste-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nodejs-teste-nginx
+  template:
+    metadata:
+      labels:
+        app: nodejs-teste-nginx
+    spec:
+      containers:
+      - name: nodejs-teste-nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+        volumeMounts:
+          - name: nginx-config
+            mountPath: /etc/nginx/conf.d
+            readOnly: true
+
+      volumes:
+        - name: nginx-config
+          configMap:
+              name: nginx-config
+              items:
+                - key: nginx.conf
+                  path: nginx.conf
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-teste-service-nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: nodejs-teste-nginx
+  ports:
+  - protocol: TCP
+    port: 80
+    # targetPort: 80
+
+--- 
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    server {
+        listen 80;
+        index index.php index.html;
+        root /var/www/public;
+        location / {
+            try_files $uri $uri/ =404;
+            
+            fastcgi_pass nodejs-teste-service-app:8081;
+            fastcgi_index index.html;
+            
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+  
